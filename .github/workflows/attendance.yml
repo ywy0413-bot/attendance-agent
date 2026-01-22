@@ -1,0 +1,51 @@
+name: Attendance Report
+
+on:
+  schedule:
+    # 평일 오후 6시 (KST) = UTC 09:00 - 차감 메일
+    - cron: '0 9 * * 1-5'
+    # 평일 오후 7시 (KST) = UTC 10:00 - 보고서
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  run-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run deduction emails (6pm KST)
+        if: github.event.schedule == '0 9 * * 1-5'
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TARGET_MAILBOX: ${{ secrets.TARGET_MAILBOX }}
+          TARGET_FOLDER: ${{ secrets.TARGET_FOLDER }}
+          REPORT_RECIPIENTS: ${{ secrets.REPORT_RECIPIENTS }}
+        run: |
+          cd src
+          python -c "import asyncio; from main import send_deduction_emails_only; asyncio.run(send_deduction_emails_only())"
+
+      - name: Run report (7pm KST)
+        if: github.event.schedule == '0 10 * * 1-5' || github.event_name == 'workflow_dispatch'
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TARGET_MAILBOX: ${{ secrets.TARGET_MAILBOX }}
+          TARGET_FOLDER: ${{ secrets.TARGET_FOLDER }}
+          REPORT_RECIPIENTS: ${{ secrets.REPORT_RECIPIENTS }}
+        run: |
+          cd src
+          python -c "import asyncio; from main import send_report_only; asyncio.run(send_report_only())"

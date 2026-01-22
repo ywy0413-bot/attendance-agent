@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m scripts.test_run:*)",
+      "Bash(python scripts/local_test.py:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(findstr:*)",
+      "Bash(python -m asyncio:*)",
+      "Bash(python test_run.py:*)",
+      "Bash(python scripts/test_report.py:*)",
+      "Bash(npm install:*)",
+      "Bash(az account set:*)",
+      "Bash(az functionapp config appsettings list:*)",
+      "Bash(powershell -Command \"az functionapp config appsettings list --name attendance-agent-envision2 --resource-group attendance-agent\")",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd /c \"az functionapp config appsettings list --name attendance-agent-envision2 --resource-group attendance-agent --query \"\"[?name==''AZURE_TENANT_ID'']\"\"\")",
+      "Bash(curl:*)",
+      "Bash(az functionapp show:*)",
+      "Bash(az functionapp list:*)",
+      "Bash(powershell -Command \"Compress-Archive -Path * -DestinationPath deploy.zip -Force\")",
+      "Bash(powershell -Command \"Compress-Archive -Path ''function_app.py'', ''host.json'', ''requirements.txt'', ''src'' -DestinationPath ''C:\\\\Users\\\\wyyu\\\\Desktop\\\\attendance-agent.zip'' -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(az functionapp deployment source config-zip:*)",
+      "Bash(az functionapp function keys list:*)",
+      "Bash(az functionapp log tail:*)",
+      "Bash(az functionapp restart:*)",
+      "Bash(az functionapp config appsettings set:*)",
+      "Bash(pip install:*)"
+    ]
+  }
+}
