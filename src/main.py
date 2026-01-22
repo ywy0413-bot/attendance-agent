@@ -223,7 +223,7 @@ async def send_report_only() -> Dict:
     logger.info("근태 보고서 발송을 시작합니다")
 
     # 설정 로드
-    settings = Settings()
+    settings = Settings.from_env()
 
     # 1. Graph API 인증
     auth = GraphAuthenticator(
