@@ -221,7 +221,8 @@ class EmailClient:
         body: str,
         attachment_name: str,
         attachment_bytes: bytes,
-        content_type: str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content_type: str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        cc: List[str] = None
     ) -> bool:
         """
         첨부파일과 함께 이메일 발송
@@ -233,6 +234,7 @@ class EmailClient:
             attachment_name: 첨부파일 이름
             attachment_bytes: 첨부파일 바이트 데이터
             content_type: 첨부파일 MIME 타입
+            cc: 참조 이메일 목록
 
         Returns:
             bool: 발송 성공 여부
@@ -245,6 +247,16 @@ class EmailClient:
                 )
                 for addr in to
             ]
+
+            # 참조 구성
+            cc_recipients = None
+            if cc:
+                cc_recipients = [
+                    Recipient(
+                        email_address=EmailAddress(address=addr)
+                    )
+                    for addr in cc if addr
+                ]
 
             # 첨부파일 구성
             attachment = FileAttachment(
@@ -262,6 +274,7 @@ class EmailClient:
                     content=body
                 ),
                 to_recipients=recipients,
+                cc_recipients=cc_recipients,
                 attachments=[attachment]
             )
 

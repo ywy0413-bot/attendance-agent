@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 # 테스트 모드 - 휴가차감 메일을 실제 직원 대신 이 주소로 발송
 TEST_DEDUCTION_EMAIL = "wyyu@envision.co.kr"
 
-# 휴가차감 메일 참조자 (None이면 참조 없음)
-DEDUCTION_CC_EMAIL = None
+# 휴가차감 메일 참조자
+DEDUCTION_CC_EMAIL = "brkwon@envision.co.kr"
+
+# 보고서 메일 참조자
+REPORT_CC_EMAIL = "brkwon@envision.co.kr"
 
 
 async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]:
@@ -118,7 +121,8 @@ async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]
         subject=f"[근태 보고서] {today_str}",
         body=email_body,
         attachment_name=filename,
-        attachment_bytes=excel_bytes
+        attachment_bytes=excel_bytes,
+        cc=[REPORT_CC_EMAIL] if REPORT_CC_EMAIL else None
     )
 
     if success:
@@ -303,7 +307,8 @@ async def send_report_only() -> Dict:
         subject=f"[근태 보고서] {today_str}",
         body=email_body,
         attachment_name=filename,
-        attachment_bytes=excel_bytes
+        attachment_bytes=excel_bytes,
+        cc=[REPORT_CC_EMAIL] if REPORT_CC_EMAIL else None
     )
 
     if success:
