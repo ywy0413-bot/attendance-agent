@@ -6,7 +6,17 @@ on:
     - cron: '0 22 * * 0-4'
     # 평일 오전 8시 (KST) = UTC 23:00 (전날) - 보고서
     - cron: '0 23 * * 0-4'
-  workflow_dispatch:  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: '실행할 작업'
+        required: true
+        default: 'report'
+        type: choice
+        options:
+          - report
+          - deduction
+          - both
 
 jobs:
   run-report:
@@ -25,7 +35,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run deduction emails (7am KST)
-        if: github.event.schedule == '0 22 * * 0-4'
+        if: github.event.schedule == '0 22 * * 0-4' || github.event.inputs.job_type == 'deduction' || github.event.inputs.job_type == 'both'
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -38,7 +48,7 @@ jobs:
           python -c "import asyncio; from main import send_deduction_emails_only; asyncio.run(send_deduction_emails_only())"
 
       - name: Run report (8am KST)
-        if: github.event.schedule == '0 23 * * 0-4' || github.event_name == 'workflow_dispatch'
+        if: github.event.schedule == '0 23 * * 0-4' || github.event.inputs.job_type == 'report' || github.event.inputs.job_type == 'both'
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
