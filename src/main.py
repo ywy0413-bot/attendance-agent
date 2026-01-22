@@ -203,7 +203,7 @@ async def send_deduction_emails_only() -> Dict:
         email_client=email_client,
         employee_mapper=employee_mapper,
         previous_deductions=previous_deductions,
-        test_mode=False  # 실제 운영 모드
+        test_mode=True  # 테스트 모드 - wyyu@envision.co.kr로 발송
     )
 
     if deductions:
