@@ -1,9 +1,8 @@
 """임직원 한글 이름 → 영어 이름 변환 모듈"""
+import json
 import logging
 from pathlib import Path
 from typing import Dict, Optional
-
-from openpyxl import load_workbook
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +15,15 @@ class EmployeeMapper:
         Args:
             excel_path: 임직원 정보 엑셀 파일 경로
         """
+        # 1. JSON 파일 먼저 시도 (GitHub Actions용)
+        json_path = Path(__file__).parent.parent / "employee_names.json"
+        if json_path.exists():
+            self._name_map = self._load_from_json(json_path)
+            logger.info(f"JSON에서 {len(self._name_map)}명의 임직원 정보를 로드했습니다")
+            return
+
+        # 2. 엑셀 파일 시도 (로컬 개발용)
         if excel_path is None:
-            # 기본 경로: 프로젝트 루트의 임직원 정보 파일
             project_root = Path(__file__).parent.parent.parent
             excel_files = list(project_root.glob("임직원*.xlsx"))
             if excel_files:
@@ -28,7 +34,16 @@ class EmployeeMapper:
                 return
 
         self._name_map = self._load_name_map(excel_path)
-        logger.info(f"{len(self._name_map)}명의 임직원 정보를 로드했습니다")
+        logger.info(f"엑셀에서 {len(self._name_map)}명의 임직원 정보를 로드했습니다")
+
+    def _load_from_json(self, json_path: Path) -> Dict[str, str]:
+        """JSON 파일에서 이름 매핑 로드"""
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"JSON 로드 실패: {e}")
+            return {}
 
     def _load_name_map(self, excel_path: str) -> Dict[str, str]:
         """엑셀 파일에서 한글→영어 이름 매핑 로드"""
