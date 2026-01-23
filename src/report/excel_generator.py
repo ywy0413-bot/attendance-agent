@@ -262,20 +262,14 @@ class ExcelReportGenerator:
             for r in data['outings']:
                 total_minutes += self._calculate_minutes(r.start_time, r.end_time)
 
-            # 아직 차감되지 않은 시간 기준으로 새 차감 계산
-            remaining_for_new_deduction = total_minutes - already_deducted
-            new_deduction_days = self._calculate_deduction_days(remaining_for_new_deduction)
-            new_deducted_minutes = int(new_deduction_days / 0.25) * 120 if new_deduction_days > 0 else 0
-
-            # 오늘 새로 차감되는 경우 이력에 추가
+            # 보고서는 기존 차감 메일만 반영 (새로운 차감 계산 안 함)
+            # 차감 메일이 삭제되었으면 차감 안 됨으로 표시
             all_deductions = list(deduction_history)
-            if new_deduction_days > 0:
-                all_deductions.append({'date': today_str, 'minutes': new_deducted_minutes})
 
-            # 총 차감 시간 (이전 + 신규)
-            total_deducted = already_deducted + new_deducted_minutes
+            # 총 차감 시간 = 기존 차감 메일에서 확인된 시간만
+            total_deducted = already_deducted
 
-            # 누계 = 총 시간 - 총 차감 시간
+            # 누계 = 총 시간 - 기존 차감 시간
             remaining_minutes = total_minutes - total_deducted
 
             # 최대 행 수 계산 (차감 이력 포함)
