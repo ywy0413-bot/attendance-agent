@@ -152,6 +152,9 @@ async def send_deduction_emails_only() -> Dict:
     """
     logger.info("휴가차감 메일 발송을 시작합니다")
 
+    # 설정 로드
+    settings = Settings.from_env()
+
     # 1. Graph API 인증
     auth = GraphAuthenticator(
         tenant_id=settings.azure_tenant_id,
