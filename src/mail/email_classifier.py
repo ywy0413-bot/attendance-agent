@@ -69,6 +69,8 @@ class EmailClassifier:
         r'당직휴식',
         r'전일\s*야근',
         r'전일야근',
+        r'휴가\s*차감',
+        r'휴가차감',
     ]
 
     def classify(self, subject: str, body: str) -> ClassificationResult:

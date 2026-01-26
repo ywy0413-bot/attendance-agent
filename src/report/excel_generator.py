@@ -1,8 +1,11 @@
 import io
 import logging
 from typing import List, Dict, Any
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone, timedelta
 from collections import defaultdict
+
+# 한국 표준시 (KST = UTC+9)
+KST = timezone(timedelta(hours=9))
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
@@ -73,7 +76,7 @@ class ExcelReportGenerator:
         ws.title = "요약"
 
         # 보고서 제목
-        report_date = data.get('report_date', datetime.now())
+        report_date = data.get('report_date', datetime.now(KST))
         ws.merge_cells('A1:B1')
         title_cell = ws['A1']
         title_cell.value = f"휴가/근태 보고서 ({report_date.strftime('%Y-%m-%d')})"
@@ -218,7 +221,7 @@ class ExcelReportGenerator:
             "조기퇴근-일자", "조기퇴근-시간(분)",
             "외출-일자", "외출-시간(분)",
             "휴가차감-일자", "차감시간",
-            "누계"
+            "누계(잔여)시간"
         ]
         self._write_headers(ws, headers)
 
@@ -243,7 +246,7 @@ class ExcelReportGenerator:
 
         # 각 직원별로 행 생성
         current_row = 2
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_str = datetime.now(KST).strftime("%Y-%m-%d")
 
         for name in sorted(employee_data.keys()):
             data = employee_data[name]

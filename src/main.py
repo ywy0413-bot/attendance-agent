@@ -1,8 +1,11 @@
 import re
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any
 from collections import defaultdict
+
+# 한국 표준시 (KST = UTC+9)
+KST = timezone(timedelta(hours=9))
 
 from config import Settings
 from auth.graph_auth import GraphAuthenticator
@@ -20,10 +23,10 @@ logger = logging.getLogger(__name__)
 TEST_DEDUCTION_EMAIL = "wyyu@envision.co.kr"
 
 # 휴가차감 메일 참조자
-DEDUCTION_CC_EMAIL = "brkwon@envision.co.kr"
+DEDUCTION_CC_EMAILS = ["brkwon@envision.co.kr", "gwp@envision.co.kr"]
 
 # 보고서 메일 참조자
-REPORT_CC_EMAIL = "brkwon@envision.co.kr"
+REPORT_CC_EMAILS = ["brkwon@envision.co.kr", "gwp@envision.co.kr"]
 
 
 async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]:
@@ -73,7 +76,7 @@ async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]
         'outings': [],
         'early_leaves': [],
         'unclassified': [],
-        'report_date': datetime.now()
+        'report_date': datetime.now(KST)
     }
 
     for email in emails:
@@ -111,7 +114,7 @@ async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]
     excel_bytes = report_generator.generate(results, previous_deductions)
 
     # 8. 보고서 이메일 발송 (주간 차감 이력 포함)
-    today_str = datetime.now().strftime("%Y%m%d")
+    today_str = datetime.now(KST).strftime("%Y%m%d")
     filename = f"근태_보고서_{today_str}.xlsx"
 
     email_body = _generate_summary_html(results, deductions, weekly_deductions=previous_deductions)
@@ -122,7 +125,7 @@ async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]
         body=email_body,
         attachment_name=filename,
         attachment_bytes=excel_bytes,
-        cc=[REPORT_CC_EMAIL] if REPORT_CC_EMAIL else None
+        cc=REPORT_CC_EMAILS if REPORT_CC_EMAILS else None
     )
 
     if success:
@@ -183,7 +186,7 @@ async def send_deduction_emails_only() -> Dict:
         'outings': [],
         'early_leaves': [],
         'unclassified': [],
-        'report_date': datetime.now()
+        'report_date': datetime.now(KST)
     }
 
     for email in emails:
@@ -262,7 +265,7 @@ async def send_report_only() -> Dict:
         'outings': [],
         'early_leaves': [],
         'unclassified': [],
-        'report_date': datetime.now()
+        'report_date': datetime.now(KST)
     }
 
     for email in emails:
@@ -283,7 +286,7 @@ async def send_report_only() -> Dict:
     previous_deductions = await fetch_previous_deductions(email_client, folder_id)
 
     # 7. 오늘 발송된 차감 메일 정보 수집 (보고서에 표시용)
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = datetime.now(KST).strftime("%Y-%m-%d")
     deductions = []
     for name, history in previous_deductions.items():
         for d in history:
@@ -300,7 +303,7 @@ async def send_report_only() -> Dict:
     excel_bytes = report_generator.generate(results, previous_deductions)
 
     # 9. 이메일 발송 (주간 차감 이력 포함)
-    today_str = datetime.now().strftime("%Y%m%d")
+    today_str = datetime.now(KST).strftime("%Y%m%d")
     filename = f"근태_보고서_{today_str}.xlsx"
 
     email_body = _generate_summary_html(results, deductions, weekly_deductions=previous_deductions)
@@ -311,7 +314,7 @@ async def send_report_only() -> Dict:
         body=email_body,
         attachment_name=filename,
         attachment_bytes=excel_bytes,
-        cc=[REPORT_CC_EMAIL] if REPORT_CC_EMAIL else None
+        cc=REPORT_CC_EMAILS if REPORT_CC_EMAILS else None
     )
 
     if success:
@@ -411,7 +414,7 @@ def _log_results(results: Dict) -> None:
 
 def _get_week_dates() -> List[tuple]:
     """이번 주 월요일~금요일 날짜 반환"""
-    today = datetime.now()
+    today = datetime.now(KST)
     # 월요일 찾기 (weekday: 월=0, 화=1, ..., 금=4, 토=5, 일=6)
     days_since_monday = today.weekday()
     monday = today - timedelta(days=days_since_monday)
@@ -434,14 +437,14 @@ def _generate_summary_html(results: Dict, deductions: List[Dict] = None, weekly_
         len(results['early_leaves'])
     )
 
-    report_date = results.get('report_date', datetime.now())
+    report_date = results.get('report_date', datetime.now(KST))
 
     # 주간 차감 발송 이력 테이블 생성 (월~금)
     week_dates = _get_week_dates()
 
     # 날짜별로 차감 데이터 정리
     deductions_by_date = defaultdict(list)
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = datetime.now(KST).strftime("%Y-%m-%d")
 
     # 이전 차감 이력 추가
     if weekly_deductions:
@@ -696,12 +699,16 @@ async def fetch_previous_deductions(email_client: EmailClient, folder_id: str = 
             time_match = re.search(r'시간[:\s]*(\d+)\s*분', body_text)
             if time_match:
                 deducted_minutes = int(time_match.group(1))
-                # 수신 날짜 추출
+                # 수신 날짜 추출 (한국시간 기준)
                 received_date = msg.received_date_time
                 if received_date:
-                    date_str = received_date.strftime("%Y-%m-%d")
+                    # UTC를 KST로 변환
+                    if received_date.tzinfo is None:
+                        received_date = received_date.replace(tzinfo=timezone.utc)
+                    kst_date = received_date.astimezone(KST)
+                    date_str = kst_date.strftime("%Y-%m-%d")
                 else:
-                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    date_str = datetime.now(KST).strftime("%Y-%m-%d")
 
                 # 중복 체크 (같은 사람, 같은 날짜는 한 번만 집계)
                 deduction_key = (english_name, date_str)
@@ -763,7 +770,7 @@ async def send_deduction_emails(
 
     # 120분 이상인 직원에게 메일 발송 (이전 차감 시간 제외)
     deductions = []
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = datetime.now(KST).strftime("%Y-%m-%d")
 
     for korean_name, data in employee_data.items():
         total_minutes = data['minutes']
@@ -791,13 +798,18 @@ async def send_deduction_emails(
             # 메일 제목
             subject = f"[근태공유] {english_name}({deduction_days}일, 휴가차감)"
 
+            # 차감 후 잔여 시간
+            remaining_after_deduction = remaining_for_deduction - deducted_minutes
+
             # 메일 본문 (근태 내역 포함)
             body = _generate_deduction_html(
                 english_name=english_name,
                 deduction_days=deduction_days,
                 deducted_minutes=deducted_minutes,
                 date=today_str,
-                records=records
+                records=records,
+                total_minutes=total_minutes,
+                remaining_minutes=remaining_after_deduction
             )
 
             # 메일 발송 (참조에 관리자 추가)
@@ -805,7 +817,7 @@ async def send_deduction_emails(
                 to=[recipient],
                 subject=subject,
                 body=body,
-                cc=[DEDUCTION_CC_EMAIL]
+                cc=DEDUCTION_CC_EMAILS
             )
 
             if success:
@@ -830,7 +842,9 @@ def _generate_deduction_html(
     deduction_days: float,
     deducted_minutes: int,
     date: str,
-    records: List[AttendanceRecord] = None
+    records: List[AttendanceRecord] = None,
+    total_minutes: int = 0,
+    remaining_minutes: int = 0
 ) -> str:
     """휴가차감 메일 HTML 생성 (기존 근태공유 메일 디자인과 동일)"""
 
@@ -864,6 +878,10 @@ def _generate_deduction_html(
         out_date = outings[i][0] if i < len(outings) else ""
         out_min = outings[i][1] if i < len(outings) else ""
 
+        # 차감내역과 누계는 첫 행에만 표시
+        deduct_display = f"{deducted_minutes}분 ({deduction_days}일)" if i == 0 else ""
+        remain_display = f"{remaining_minutes}분" if i == 0 else ""
+
         table_rows += f"""
             <tr>
                 <td>{late_date}</td>
@@ -872,6 +890,8 @@ def _generate_deduction_html(
                 <td>{early_min}</td>
                 <td>{out_date}</td>
                 <td>{out_min}</td>
+                <td>{deduct_display}</td>
+                <td>{remain_display}</td>
             </tr>"""
 
     return f"""
@@ -948,6 +968,8 @@ def _generate_deduction_html(
                     <th>조기퇴근-시간(분)</th>
                     <th>외출-일자</th>
                     <th>외출-시간(분)</th>
+                    <th>현재 차감내역</th>
+                    <th>누계(잔여)시간</th>
                 </tr>
                 {table_rows}
             </table>
@@ -955,8 +977,7 @@ def _generate_deduction_html(
 
         <div class="footer">
             본 메일은 근태 신고 시스템에서 자동으로 발송된 메일입니다.<br><br>
-            이 메일은 연차 차감 사전 안내 메일이며, 위 내역과 관련하여 수정이 필요한 부분은 기업발전그룹에 문의 부탁드립니다.<br>
-            그룹웨어 상 실제 휴가 차감은 내일 진행될 예정입니다.<br><br>
+            이 메일은 연차 차감 사전 안내 메일이며, 위 내역과 관련하여 수정이 필요한 부분은 기업발전그룹에 문의 부탁드립니다.<br><br>
             <a href="https://attendance-records-375b6.web.app/" class="link">근태 신고 시스템 바로가기</a>
         </div>
     </body>
