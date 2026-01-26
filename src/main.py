@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 TEST_DEDUCTION_EMAIL = "wyyu@envision.co.kr"
 
 # 휴가차감 메일 참조자
-DEDUCTION_CC_EMAILS = ["brkwon@envision.co.kr", "gwp@envision.co.kr"]
+DEDUCTION_CC_EMAILS = ["gwp@envision.co.kr"]
 
 # 보고서 메일 참조자
-REPORT_CC_EMAILS = ["brkwon@envision.co.kr", "gwp@envision.co.kr"]
+REPORT_CC_EMAILS = ["gwp@envision.co.kr"]
 
 
 async def process_attendance_emails(settings: Settings = None) -> Dict[str, Any]:
@@ -442,26 +442,33 @@ def _generate_summary_html(results: Dict, deductions: List[Dict] = None, weekly_
     # 주간 차감 발송 이력 테이블 생성 (월~금)
     week_dates = _get_week_dates()
 
-    # 날짜별로 차감 데이터 정리
+    # 날짜별로 차감 데이터 정리 (중복 제거)
     deductions_by_date = defaultdict(list)
+    seen_deductions = set()  # (name, date, minutes) 중복 체크용
     today_str = datetime.now(KST).strftime("%Y-%m-%d")
 
-    # 이전 차감 이력 추가
+    # 이전 차감 이력 추가 (중복 제거)
     if weekly_deductions:
         for name, history in weekly_deductions.items():
             for d in history:
-                deductions_by_date[d['date']].append({
-                    'name': name,
-                    'minutes': d['minutes']
-                })
+                key = (name, d['date'], d['minutes'])
+                if key not in seen_deductions:
+                    seen_deductions.add(key)
+                    deductions_by_date[d['date']].append({
+                        'name': name,
+                        'minutes': d['minutes']
+                    })
 
-    # 오늘 발송된 차감 메일 추가
+    # 오늘 발송된 차감 메일 추가 (중복 제거)
     if deductions:
         for d in deductions:
-            deductions_by_date[today_str].append({
-                'name': d['english_name'],
-                'minutes': d['deducted_minutes']
-            })
+            key = (d['english_name'], today_str, d['deducted_minutes'])
+            if key not in seen_deductions:
+                seen_deductions.add(key)
+                deductions_by_date[today_str].append({
+                    'name': d['english_name'],
+                    'minutes': d['deducted_minutes']
+                })
 
     # 주간 테이블 행 생성
     weekly_rows = ""
@@ -710,9 +717,10 @@ async def fetch_previous_deductions(email_client: EmailClient, folder_id: str = 
                 else:
                     date_str = datetime.now(KST).strftime("%Y-%m-%d")
 
-                # 중복 체크 (같은 사람, 같은 날짜는 한 번만 집계)
-                deduction_key = (english_name, date_str)
+                # 중복 체크 (같은 사람, 같은 날짜, 같은 분은 한 번만 집계 - 중복 메일 방지)
+                deduction_key = (english_name, date_str, deducted_minutes)
                 if deduction_key in seen_deductions:
+                    logger.info(f"중복 차감 무시: {english_name} - {date_str} - {deducted_minutes}분 (이미 존재)")
                     continue
                 seen_deductions.add(deduction_key)
 
@@ -878,7 +886,8 @@ def _generate_deduction_html(
         out_date = outings[i][0] if i < len(outings) else ""
         out_min = outings[i][1] if i < len(outings) else ""
 
-        # 차감내역과 누계는 첫 행에만 표시
+        # 차감일자, 차감내역, 누계는 첫 행에만 표시
+        deduct_date_display = date if i == 0 else ""
         deduct_display = f"{deducted_minutes}분 ({deduction_days}일)" if i == 0 else ""
         remain_display = f"{remaining_minutes}분" if i == 0 else ""
 
@@ -890,6 +899,7 @@ def _generate_deduction_html(
                 <td>{early_min}</td>
                 <td>{out_date}</td>
                 <td>{out_min}</td>
+                <td>{deduct_date_display}</td>
                 <td>{deduct_display}</td>
                 <td>{remain_display}</td>
             </tr>"""
@@ -968,7 +978,8 @@ def _generate_deduction_html(
                     <th>조기퇴근-시간(분)</th>
                     <th>외출-일자</th>
                     <th>외출-시간(분)</th>
-                    <th>현재 차감내역</th>
+                    <th>차감일자</th>
+                    <th>차감내역</th>
                     <th>누계(잔여)시간</th>
                 </tr>
                 {table_rows}
